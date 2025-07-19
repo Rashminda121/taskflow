@@ -1,10 +1,47 @@
+import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
+
+part 'task.g.dart';
+
+@HiveType(typeId: 0)
 class Task {
-  String title;
-  bool isDone;
+  @HiveField(0)
+  final String id;
 
-  Task({required this.title, this.isDone = false});
+  @HiveField(1)
+  final String title;
 
-  void toggleDone() {
-    isDone = !isDone;
-  }
+  @HiveField(2)
+  final String description;
+
+  @HiveField(3)
+  final DateTime date;
+
+  @HiveField(4)
+  final TimeOfDay startTime;
+
+  @HiveField(5)
+  final TimeOfDay endTime;
+
+  @HiveField(6)
+  final String category;
+
+  @HiveField(7)
+  bool isCompleted;
+
+  Task({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.date,
+    required this.startTime,
+    required this.endTime,
+    required this.category,
+    this.isCompleted = false,
+  });
+
+  String get formattedStartTime =>
+      '${startTime.hour}:${startTime.minute.toString().padLeft(2, '0')}';
+  String get formattedEndTime =>
+      '${endTime.hour}:${endTime.minute.toString().padLeft(2, '0')}';
 }

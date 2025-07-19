@@ -1,26 +1,33 @@
-name: flutter_application_1
-description: "A new Flutter project."
+name: daydo
+description: "A task management app."
 
-publish_to: 'none' 
+publish_to: 'none'
 
-version: 1.0.0
+version: 1.0.0+1
 
 environment:
-  sdk: ^3.8.1
+  sdk: '>=3.8.1 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
   provider: ^6.1.1
-  cupertino_icons: ^1.0.8
-
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  intl: ^0.20.2
+  table_calendar: ^3.0.9
+  flutter_localizations:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  hive_generator: ^2.0.1
+  build_runner: ^2.4.4
 
 flutter:
   uses-material-design: true
-
-  
+  assets:
+    - assets/
