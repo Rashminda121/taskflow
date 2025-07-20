@@ -7,50 +7,80 @@ class DatabaseService {
   static const String _categoryBoxName = 'categories';
   static const String _profileBoxName = 'profile';
 
-  Future<void> init() async {
-    await Hive.initFlutter();
-    Hive.registerAdapter(TaskAdapter());
-    Hive.registerAdapter(TimeOfDayAdapter());
-    await Hive.openBox<Task>(_taskBoxName);
-    await Hive.openBox<String>(_categoryBoxName);
-    await Hive.openBox<Map<String, dynamic>>(_profileBoxName);
+  late Box<Task> _taskBox;
+  late Box<String> _categoryBox;
+  late Box<Map<String, dynamic>> _profileBox;
 
-    final categoryBox = Hive.box<String>(_categoryBoxName);
-    if (categoryBox.isEmpty) {
-      await categoryBox.addAll([
-        'Meeting',
-        'Hangout',
-        'Cooking',
+  Future<void> init() async {
+    try {
+      await Hive.initFlutter();
+
+      // Register adapters
+      if (!Hive.isAdapterRegistered(TaskAdapter().typeId)) {
+        Hive.registerAdapter(TaskAdapter());
+      }
+      if (!Hive.isAdapterRegistered(TimeOfDayAdapter().typeId)) {
+        Hive.registerAdapter(TimeOfDayAdapter());
+      }
+
+      // Open boxes with crash protection
+      _taskBox = await _openBoxWithRecovery<Task>(_taskBoxName);
+      _categoryBox = await _openBoxWithRecovery<String>(_categoryBoxName);
+      _profileBox =
+          await _openBoxWithRecovery<Map<String, dynamic>>(_profileBoxName);
+
+      // Initialize default data
+      await _initializeDefaultData();
+    } catch (e) {
+      throw Exception('Failed to initialize database: $e');
+    }
+  }
+
+  Future<Box<T>> _openBoxWithRecovery<T>(String name) async {
+    try {
+      return await Hive.openBox<T>(name);
+    } catch (e) {
+      // If box is corrupted, delete and recreate it
+      await Hive.deleteBoxFromDisk(name);
+      return await Hive.openBox<T>(name);
+    }
+  }
+
+  Future<void> _initializeDefaultData() async {
+    if (_categoryBox.isEmpty) {
+      await _categoryBox.addAll([
+        'Work',
+        'Personal',
+        'Study',
+        'Health',
         'Other',
-        'Weekend',
       ]);
     }
 
-    final profileBox = Hive.box<Map<String, dynamic>>(_profileBoxName);
-    if (profileBox.isEmpty) {
-      await profileBox.put('profile', {'name': 'User', 'imagePath': null});
+    if (!_profileBox.containsKey('profile')) {
+      await _profileBox.put('profile', {
+        'name': 'User',
+        'photoUrl': null,
+        'themeMode': 'system',
+      });
     }
   }
 
-  Box<Task> get tasksBox => Hive.box<Task>(_taskBoxName);
-  Box<String> get categoryBox => Hive.box<String>(_categoryBoxName);
-  Box<Map<String, dynamic>> get profileBox =>
-      Hive.box<Map<String, dynamic>>(_profileBoxName);
-
+  // Task operations
   Future<void> addTask(Task task) async {
-    await tasksBox.put(task.id, task);
+    await _taskBox.put(task.id, task);
   }
 
   Future<void> updateTask(Task task) async {
-    await tasksBox.put(task.id, task);
+    await _taskBox.put(task.id, task);
   }
 
   Future<void> deleteTask(String id) async {
-    await tasksBox.delete(id);
+    await _taskBox.delete(id);
   }
 
   List<Task> getTasksForDate(DateTime date) {
-    return tasksBox.values
+    return _taskBox.values
         .where((task) =>
             task.date.year == date.year &&
             task.date.month == date.month &&
@@ -58,35 +88,49 @@ class DatabaseService {
         .toList();
   }
 
+  // Category operations
+  List<String> getCategories() {
+    return _categoryBox.values.toList();
+  }
+
   Future<void> addCategory(String category) async {
-    await categoryBox.add(category);
+    if (!_categoryBox.values.contains(category)) {
+      await _categoryBox.add(category);
+    }
   }
 
   Future<void> deleteCategory(int index) async {
-    await categoryBox.deleteAt(index);
+    await _categoryBox.deleteAt(index);
   }
 
-  List<String> getCategories() {
-    return categoryBox.values.toList();
+  // Profile operations
+  Future<Map<String, dynamic>> getProfile() async {
+    return _profileBox.get('profile') ??
+        {
+          'name': 'User',
+          'photoUrl': null,
+          'themeMode': 'system',
+        };
   }
 
   Future<void> updateProfile(Map<String, dynamic> profile) async {
-    await profileBox.put('profile', profile);
+    await _profileBox.put('profile', profile);
   }
 
-  Future<Map<String, dynamic>> getProfile() async {
-    try {
-      final profile = profileBox.get('profile');
-      if (profile != null) {
-        return Map<String, dynamic>.from(profile);
-      }
-      return {'name': 'User', 'imagePath': null};
-    } catch (e) {
-      return {'name': 'User', 'imagePath': null};
-    }
+  // Maintenance
+  Future<void> clearDatabase() async {
+    await _taskBox.clear();
+    await _categoryBox.clear();
+    await _profileBox.clear();
+    await _initializeDefaultData();
   }
 
   Future<void> close() async {
     await Hive.close();
   }
+
+  // Getters
+  Box<Task> get tasksBox => _taskBox;
+  Box<String> get categoryBox => _categoryBox;
+  Box<Map<String, dynamic>> get profileBox => _profileBox;
 }

@@ -10,8 +10,13 @@ import '../services/database_service.dart';
 
 class AddTaskScreen extends StatefulWidget {
   final DateTime selectedDate;
+  final Task? taskToEdit;
 
-  const AddTaskScreen({super.key, required this.selectedDate});
+  const AddTaskScreen({
+    super.key,
+    required this.selectedDate,
+    this.taskToEdit,
+  });
 
   @override
   State<AddTaskScreen> createState() => _AddTaskScreenState();
@@ -19,20 +24,48 @@ class AddTaskScreen extends StatefulWidget {
 
 class _AddTaskScreenState extends State<AddTaskScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _titleController = TextEditingController();
-  final _descriptionController = TextEditingController();
+  late TextEditingController _titleController;
+  late TextEditingController _descriptionController;
   final _subtaskController = TextEditingController();
   late DateTime _selectedDate;
-  TimeOfDay _startTime = TimeOfDay.now();
-  TimeOfDay _endTime = TimeOfDay.now();
-  String _category = 'Meeting';
+  late TimeOfDay _startTime;
+  late TimeOfDay _endTime;
+  late String _category;
   List<String> _subtasks = [];
+  Color _taskColor = Colors.blue;
 
   @override
   void initState() {
     super.initState();
-    _selectedDate = widget.selectedDate;
-    _endTime = TimeOfDay(hour: _startTime.hour + 1, minute: _startTime.minute);
+
+    // Initialize with task to edit if provided, or default values
+    if (widget.taskToEdit != null) {
+      _titleController = TextEditingController(text: widget.taskToEdit!.title);
+      _descriptionController =
+          TextEditingController(text: widget.taskToEdit!.description ?? '');
+      _selectedDate = widget.taskToEdit!.date;
+      _startTime = widget.taskToEdit!.startTime;
+      _endTime = widget.taskToEdit!.endTime;
+      _category = widget.taskToEdit!.category;
+      _subtasks = List.from(widget.taskToEdit!.subtasks ?? []);
+      _taskColor = widget.taskToEdit!.color;
+    } else {
+      _titleController = TextEditingController();
+      _descriptionController = TextEditingController();
+      _selectedDate = widget.selectedDate;
+      _startTime = TimeOfDay.now();
+      _endTime =
+          TimeOfDay(hour: _startTime.hour + 1, minute: _startTime.minute);
+      _category = 'Meeting';
+    }
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _subtaskController.dispose();
+    super.dispose();
   }
 
   void _addSubtask() {
@@ -46,6 +79,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
   Future<void> _scheduleNotification(Task task) async {
     final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+
+    // Initialize timezone database
+    tz.initializeTimeZones();
 
     // Convert to TZDateTime
     final scheduledTime = tz.TZDateTime.from(
@@ -85,7 +121,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     final categories = database.getCategories();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Task')),
+      appBar: AppBar(
+        title: Text(widget.taskToEdit != null ? 'Edit Task' : 'Add Task'),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -153,6 +191,24 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                 ],
               ),
               const SizedBox(height: 16),
+              const Text('Color'),
+              SizedBox(
+                height: 50,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    _buildColorOption(Colors.red),
+                    _buildColorOption(Colors.orange),
+                    _buildColorOption(Colors.yellow),
+                    _buildColorOption(Colors.green),
+                    _buildColorOption(Colors.blue),
+                    _buildColorOption(Colors.indigo),
+                    _buildColorOption(Colors.purple),
+                    _buildColorOption(Colors.pink),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
               const Text('Subtasks'),
               ..._subtasks.map(
                 (subtask) => ListTile(
@@ -178,6 +234,30 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                 child: const Text('Save Task'),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildColorOption(Color color) {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _taskColor = color;
+        });
+      },
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            border: _taskColor == color
+                ? Border.all(color: Colors.black, width: 2)
+                : null,
           ),
         ),
       ),
@@ -255,7 +335,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   Future<void> _saveTask() async {
     if (_formKey.currentState!.validate()) {
       final task = Task(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id: widget.taskToEdit?.id ??
+            DateTime.now().millisecondsSinceEpoch.toString(),
         title: _titleController.text,
         description: _descriptionController.text.isEmpty
             ? null
@@ -265,9 +346,17 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         endTime: _endTime,
         category: _category,
         subtasks: _subtasks,
+        color: _taskColor,
+        isCompleted: widget.taskToEdit?.isCompleted ?? false,
       );
 
-      await Provider.of<DatabaseService>(context, listen: false).addTask(task);
+      final database = Provider.of<DatabaseService>(context, listen: false);
+      if (widget.taskToEdit != null) {
+        await database.updateTask(task);
+      } else {
+        await database.addTask(task);
+      }
+
       await _scheduleNotification(task);
       if (!mounted) return;
       Navigator.pop(context);
