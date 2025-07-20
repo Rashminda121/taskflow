@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'; // Added for BindingBase
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -10,9 +11,8 @@ import 'services/database_service.dart';
 import 'screens/home_screen.dart';
 import 'widgets/theme_provider.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
+Future<DatabaseService> _initializeApp() async {
+  // Changed return type to Future<DatabaseService>
   // Initialize timezone database
   tz.initializeTimeZones();
 
@@ -33,14 +33,13 @@ void main() async {
 
   try {
     print('Initializing notifications...');
-    final initialized = await flutterLocalNotificationsPlugin.initialize(
+    await flutterLocalNotificationsPlugin.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
         print('Notification response received: ${response.payload}');
       },
     );
-    print(
-        'Notification initialization ${initialized == true ? 'succeeded' : 'failed'}');
+    print('Notification initialization succeeded');
   } catch (e, stack) {
     print('Error initializing notifications: $e');
     print('Stack trace: $stack');
@@ -52,12 +51,23 @@ void main() async {
     print('Initializing database...');
     await database.init();
     print('Database initialized.');
+    return database; // Now matches the return type
   } catch (e, stack) {
     print('Error initializing database: $e');
     print('Stack trace: $stack');
+    rethrow;
   }
+}
 
-  runZonedGuarded(() {
+void main() {
+  // Make zone errors fatal during development
+  BindingBase.debugZoneErrorsAreFatal = true;
+
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+
+    final database = await _initializeApp();
+
     runApp(
       MultiProvider(
         providers: [
@@ -70,6 +80,7 @@ void main() async {
   }, (error, stack) {
     print('Unhandled error: $error');
     print('Stack trace: $stack');
+    // You might want to add crash reporting here
   });
 }
 
@@ -80,8 +91,8 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, _) {
-        print('Building MyApp with themeMode: ${themeProvider.themeMode}');
         return MaterialApp(
+          debugShowCheckedModeBanner: false,
           title: 'DayDo',
           theme: ThemeData(
             primarySwatch: Colors.blue,

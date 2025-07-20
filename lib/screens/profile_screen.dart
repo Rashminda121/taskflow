@@ -14,16 +14,35 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _nameController;
   String? _imagePath;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    final profile = Provider.of<DatabaseService>(
-      context,
-      listen: false,
-    ).getProfile();
-    _nameController = TextEditingController(text: profile['name']);
-    _imagePath = profile['imagePath'];
+    _nameController = TextEditingController();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    final database = Provider.of<DatabaseService>(context, listen: false);
+    try {
+      final profile = await database.getProfile();
+      if (mounted) {
+        setState(() {
+          _nameController.text = profile['name'] ?? 'User';
+          _imagePath = profile['imagePath'];
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _nameController.text = 'User';
+          _imagePath = null;
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -35,7 +54,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
+    if (pickedFile != null && mounted) {
       setState(() {
         _imagePath = pickedFile.path;
       });
@@ -44,6 +63,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
       body: Padding(
@@ -54,9 +79,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onTap: _pickImage,
               child: CircleAvatar(
                 radius: 50,
-                backgroundImage: _imagePath != null
-                    ? FileImage(File(_imagePath!))
-                    : null,
+                backgroundImage:
+                    _imagePath != null ? FileImage(File(_imagePath!)) : null,
                 child: _imagePath == null
                     ? const Icon(Icons.person, size: 50)
                     : null,

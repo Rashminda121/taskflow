@@ -13,7 +13,7 @@ class DatabaseService {
     Hive.registerAdapter(TimeOfDayAdapter());
     await Hive.openBox<Task>(_taskBoxName);
     await Hive.openBox<String>(_categoryBoxName);
-    await Hive.openBox(_profileBoxName);
+    await Hive.openBox<Map<String, dynamic>>(_profileBoxName);
 
     final categoryBox = Hive.box<String>(_categoryBoxName);
     if (categoryBox.isEmpty) {
@@ -26,7 +26,7 @@ class DatabaseService {
       ]);
     }
 
-    final profileBox = Hive.box(_profileBoxName);
+    final profileBox = Hive.box<Map<String, dynamic>>(_profileBoxName);
     if (profileBox.isEmpty) {
       await profileBox.put('profile', {'name': 'User', 'imagePath': null});
     }
@@ -34,7 +34,8 @@ class DatabaseService {
 
   Box<Task> get tasksBox => Hive.box<Task>(_taskBoxName);
   Box<String> get categoryBox => Hive.box<String>(_categoryBoxName);
-  Box get profileBox => Hive.box(_profileBoxName);
+  Box<Map<String, dynamic>> get profileBox =>
+      Hive.box<Map<String, dynamic>>(_profileBoxName);
 
   Future<void> addTask(Task task) async {
     await tasksBox.put(task.id, task);
@@ -50,12 +51,10 @@ class DatabaseService {
 
   List<Task> getTasksForDate(DateTime date) {
     return tasksBox.values
-        .where(
-          (task) =>
-              task.date.year == date.year &&
-              task.date.month == date.month &&
-              task.date.day == date.day,
-        )
+        .where((task) =>
+            task.date.year == date.year &&
+            task.date.month == date.month &&
+            task.date.day == date.day)
         .toList();
   }
 
@@ -63,11 +62,8 @@ class DatabaseService {
     await categoryBox.add(category);
   }
 
-  Future<void> deleteCategory(String category) async {
-    final index = categoryBox.values.toList().indexOf(category);
-    if (index != -1) {
-      await categoryBox.deleteAt(index);
-    }
+  Future<void> deleteCategory(int index) async {
+    await categoryBox.deleteAt(index);
   }
 
   List<String> getCategories() {
@@ -78,7 +74,19 @@ class DatabaseService {
     await profileBox.put('profile', profile);
   }
 
-  Map<String, dynamic> getProfile() {
-    return profileBox.get('profile') ?? {'name': 'User', 'imagePath': null};
+  Future<Map<String, dynamic>> getProfile() async {
+    try {
+      final profile = profileBox.get('profile');
+      if (profile != null) {
+        return Map<String, dynamic>.from(profile);
+      }
+      return {'name': 'User', 'imagePath': null};
+    } catch (e) {
+      return {'name': 'User', 'imagePath': null};
+    }
+  }
+
+  Future<void> close() async {
+    await Hive.close();
   }
 }

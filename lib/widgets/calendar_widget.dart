@@ -42,7 +42,7 @@ class _CompactCalendarState extends State<CompactCalendar> {
   void _centerSelectedDate() {
     if (_isExpanded || !_weekScrollController.hasClients) return;
 
-    final dateWidth = 56.0;
+    final dateWidth = 52.0;
     final screenWidth = MediaQuery.of(context).size.width;
     final daysBefore = 7;
     final selectedDateOffset =
@@ -128,6 +128,13 @@ class _CompactCalendarState extends State<CompactCalendar> {
   }
 
   void _showYearMonthPickerDialog() {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final textColor = isDarkMode ? Colors.white : Colors.black;
+    final selectedColor = theme.primaryColor;
+    final borderColor =
+        isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300;
+
     showDialog(
       context: context,
       builder: (context) {
@@ -145,7 +152,9 @@ class _CompactCalendarState extends State<CompactCalendar> {
                   padding: const EdgeInsets.all(16),
                   child: Text(
                     'Select Year and Month',
-                    style: Theme.of(context).textTheme.titleLarge,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: textColor,
+                    ),
                   ),
                 ),
                 Expanded(
@@ -156,7 +165,7 @@ class _CompactCalendarState extends State<CompactCalendar> {
                         child: Container(
                           decoration: BoxDecoration(
                             border: Border(
-                              right: BorderSide(color: Colors.grey.shade300),
+                              right: BorderSide(color: borderColor),
                             ),
                           ),
                           child: ListView.builder(
@@ -174,8 +183,8 @@ class _CompactCalendarState extends State<CompactCalendar> {
                                           ? FontWeight.bold
                                           : FontWeight.normal,
                                       color: year == _currentMonth.year
-                                          ? Theme.of(context).primaryColor
-                                          : Colors.black,
+                                          ? selectedColor
+                                          : textColor,
                                     ),
                                   ),
                                 ),
@@ -209,21 +218,13 @@ class _CompactCalendarState extends State<CompactCalendar> {
                               ),
                               child: OutlinedButton(
                                 style: OutlinedButton.styleFrom(
-                                  backgroundColor:
-                                      month == _currentMonth.month &&
-                                          _currentMonth.year ==
-                                              _currentMonth.year
-                                      ? Theme.of(
-                                          context,
-                                        ).primaryColor.withOpacity(0.1)
+                                  backgroundColor: month == _currentMonth.month
+                                      ? selectedColor.withOpacity(0.1)
                                       : null,
                                   side: BorderSide(
-                                    color:
-                                        month == _currentMonth.month &&
-                                            _currentMonth.year ==
-                                                _currentMonth.year
-                                        ? Theme.of(context).primaryColor
-                                        : Colors.grey.shade300,
+                                    color: month == _currentMonth.month
+                                        ? selectedColor
+                                        : borderColor,
                                   ),
                                 ),
                                 onPressed: () {
@@ -236,19 +237,16 @@ class _CompactCalendarState extends State<CompactCalendar> {
                                     Navigator.pop(context);
                                     WidgetsBinding.instance
                                         .addPostFrameCallback((_) {
-                                          _centerSelectedDate();
-                                        });
+                                      _centerSelectedDate();
+                                    });
                                   });
                                 },
                                 child: Text(
                                   DateFormat('MMMM').format(DateTime(0, month)),
                                   style: TextStyle(
-                                    color:
-                                        month == _currentMonth.month &&
-                                            _currentMonth.year ==
-                                                _currentMonth.year
-                                        ? Theme.of(context).primaryColor
-                                        : Colors.black,
+                                    color: month == _currentMonth.month
+                                        ? selectedColor
+                                        : textColor,
                                   ),
                                 ),
                               ),
@@ -266,7 +264,10 @@ class _CompactCalendarState extends State<CompactCalendar> {
                     children: [
                       TextButton(
                         onPressed: () => Navigator.pop(context),
-                        child: const Text('Cancel'),
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(color: textColor),
+                        ),
                       ),
                       const SizedBox(width: 8),
                       ElevatedButton(
@@ -290,21 +291,53 @@ class _CompactCalendarState extends State<CompactCalendar> {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: _isExpanded ? 450 : 110,
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final selectedDateBgColor = isDarkMode ? Colors.white : theme.primaryColor;
+    final selectedDateTextColor = isDarkMode ? Colors.black : Colors.white;
+    final currentDateBgColor = isDarkMode
+        ? Colors.blueGrey.withOpacity(0.3)
+        : Colors.blue.withOpacity(0.1);
+    final textColor = isDarkMode ? Colors.white : Colors.black;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDarkMode ? Colors.grey.shade900 : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.all(8),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _buildHeader(),
-          Expanded(child: _isExpanded ? _buildMonthView() : _buildWeekView()),
-          if (_isExpanded) const SizedBox(height: 20),
+          _buildHeader(isDarkMode, textColor),
+          if (_isExpanded)
+            SizedBox(
+              height: 300, // Fixed height for expanded view
+              child: _buildMonthView(
+                selectedDateBgColor,
+                selectedDateTextColor,
+                currentDateBgColor,
+                textColor,
+              ),
+            )
+          else
+            SizedBox(
+              height: 72, // Fixed height for compact view
+              child: _buildWeekView(
+                selectedDateBgColor,
+                selectedDateTextColor,
+                currentDateBgColor,
+                textColor,
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(bool isDarkMode, Color textColor) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -312,38 +345,31 @@ class _CompactCalendarState extends State<CompactCalendar> {
             children: [
               if (_isExpanded)
                 IconButton(
-                  icon: const Icon(Icons.chevron_left),
+                  icon: Icon(Icons.chevron_left, color: textColor),
                   onPressed: () => _navigateMonths(-1),
                 ),
               InkWell(
                 onTap: _isExpanded
                     ? _showYearMonthPickerDialog
-                    : () {
-                        setState(() {
-                          _isExpanded = true;
-                        });
-                      },
+                    : () => setState(() => _isExpanded = true),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    color: Colors.transparent,
+                    horizontal: 8,
+                    vertical: 4,
                   ),
                   child: Text(
                     DateFormat('MMMM yyyy').format(_currentMonth),
-                    style: const TextStyle(
-                      fontSize: 16,
+                    style: TextStyle(
+                      fontSize: 14,
                       fontWeight: FontWeight.bold,
+                      color: textColor,
                     ),
                   ),
                 ),
               ),
               if (_isExpanded)
                 IconButton(
-                  icon: const Icon(Icons.chevron_right),
+                  icon: Icon(Icons.chevron_right, color: textColor),
                   onPressed: () => _navigateMonths(1),
                 ),
             ],
@@ -352,7 +378,7 @@ class _CompactCalendarState extends State<CompactCalendar> {
             children: [
               if (_isExpanded)
                 IconButton(
-                  icon: const Icon(Icons.today),
+                  icon: Icon(Icons.today, color: textColor),
                   tooltip: 'Go to today',
                   onPressed: _resetToCurrentDate,
                 ),
@@ -361,13 +387,12 @@ class _CompactCalendarState extends State<CompactCalendar> {
                   _isExpanded
                       ? Icons.keyboard_arrow_up
                       : Icons.keyboard_arrow_down,
+                  color: textColor,
                 ),
                 onPressed: () {
-                  setState(() {
-                    _isExpanded = !_isExpanded;
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (!_isExpanded) _centerSelectedDate();
-                    });
+                  setState(() => _isExpanded = !_isExpanded);
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!_isExpanded) _centerSelectedDate();
                   });
                 },
               ),
@@ -378,53 +403,60 @@ class _CompactCalendarState extends State<CompactCalendar> {
     );
   }
 
-  Widget _buildWeekView() {
+  Widget _buildWeekView(
+    Color selectedDateBgColor,
+    Color selectedDateTextColor,
+    Color currentDateBgColor,
+    Color textColor,
+  ) {
     final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     final weeksToShow = 3;
     final firstDayToShow = widget.selectedDate.subtract(
       Duration(days: widget.selectedDate.weekday - 1 + 7),
     );
 
-    return SizedBox(
-      height: 110,
-      child: ListView.builder(
-        controller: _weekScrollController,
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        itemCount: days.length * weeksToShow,
-        itemBuilder: (context, index) {
-          final date = firstDayToShow.add(Duration(days: index));
-          final isSelected =
-              date.day == widget.selectedDate.day &&
-              date.month == widget.selectedDate.month &&
-              date.year == widget.selectedDate.year;
-          final isCurrentDate =
-              date.day == _currentDate.day &&
-              date.month == _currentDate.month &&
-              date.year == _currentDate.year;
+    return ListView.builder(
+      controller: _weekScrollController,
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      itemCount: days.length * weeksToShow,
+      itemBuilder: (context, index) {
+        final date = firstDayToShow.add(Duration(days: index));
+        final isSelected = date.day == widget.selectedDate.day &&
+            date.month == widget.selectedDate.month &&
+            date.year == widget.selectedDate.year;
+        final isCurrentDate = date.day == _currentDate.day &&
+            date.month == _currentDate.month &&
+            date.year == _currentDate.year;
 
-          return SizedBox(
-            width: 56,
-            height: 100,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-              child: Material(
+        return SizedBox(
+          width: 48,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+            child: Container(
+              decoration: BoxDecoration(
                 color: isSelected
-                    ? Theme.of(context).primaryColor
+                    ? selectedDateBgColor
                     : isCurrentDate
-                    ? Colors.grey.withOpacity(0.2)
-                    : Colors.transparent,
+                        ? currentDateBgColor
+                        : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+                border: isCurrentDate && !isSelected
+                    ? Border.all(
+                        color: Theme.of(context).primaryColor.withOpacity(0.5))
+                    : null,
+              ),
+              child: Material(
+                color: Colors.transparent,
                 borderRadius: BorderRadius.circular(8),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(8),
                   onTap: () {
                     widget.onDateSelected(date);
-                    setState(() {
-                      _currentMonth = DateTime(date.year, date.month, 1);
-                    });
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      _centerSelectedDate();
-                    });
+                    setState(() =>
+                        _currentMonth = DateTime(date.year, date.month, 1));
+                    WidgetsBinding.instance
+                        .addPostFrameCallback((_) => _centerSelectedDate());
                   },
                   child: Center(
                     child: Column(
@@ -435,22 +467,20 @@ class _CompactCalendarState extends State<CompactCalendar> {
                           date.day.toString(),
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            height: 1.2,
-                            color: isSelected ? Colors.white : Colors.black,
+                            fontSize: 14,
+                            color:
+                                isSelected ? selectedDateTextColor : textColor,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 2),
                         Text(
                           days[date.weekday - 1],
                           style: TextStyle(
-                            fontSize: 12,
-                            height: 1.2,
+                            fontSize: 10,
                             color: isSelected
-                                ? Colors.white
-                                : isCurrentDate
-                                ? Colors.black
-                                : Colors.grey,
+                                ? selectedDateTextColor
+                                : textColor
+                                    .withOpacity(isCurrentDate ? 1 : 0.7),
                           ),
                         ),
                       ],
@@ -459,24 +489,28 @@ class _CompactCalendarState extends State<CompactCalendar> {
                 ),
               ),
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildMonthView() {
+  Widget _buildMonthView(
+    Color selectedDateBgColor,
+    Color selectedDateTextColor,
+    Color currentDateBgColor,
+    Color textColor,
+  ) {
     return PageView.builder(
       controller: _monthPageController,
       itemCount: 24,
       onPageChanged: (index) {
-        final newMonth = DateTime(
-          _currentMonth.year,
-          _currentMonth.month + (index - 12),
-          1,
-        );
         setState(() {
-          _currentMonth = newMonth;
+          _currentMonth = DateTime(
+            _currentMonth.year,
+            _currentMonth.month + (index - 12),
+            1,
+          );
         });
       },
       itemBuilder: (context, pageIndex) {
@@ -485,76 +519,93 @@ class _CompactCalendarState extends State<CompactCalendar> {
           _currentMonth.month + (pageIndex - 12),
           1,
         );
-        return _buildSingleMonthView(displayMonth);
+        return _buildSingleMonthView(
+          displayMonth,
+          selectedDateBgColor,
+          selectedDateTextColor,
+          currentDateBgColor,
+          textColor,
+        );
       },
     );
   }
 
-  Widget _buildSingleMonthView(DateTime month) {
+  Widget _buildSingleMonthView(
+    DateTime month,
+    Color selectedDateBgColor,
+    Color selectedDateTextColor,
+    Color currentDateBgColor,
+    Color textColor,
+  ) {
     final firstDayOfMonth = DateTime(month.year, month.month, 1);
     final daysBefore = firstDayOfMonth.weekday % 7;
     final daysInMonth = DateUtils.getDaysInMonth(month.year, month.month);
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-                .map(
-                  (day) => SizedBox(
-                    width: 40,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+              .map((day) => SizedBox(
+                    width: 32,
                     child: Center(
                       child: Text(
                         day,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 12,
+                          fontSize: 10,
+                          color: textColor,
                         ),
                       ),
                     ),
-                  ),
-                )
-                .toList(),
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Table(
+                  ))
+              .toList(),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: Table(
+            defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+            children: List.generate(
+              ((daysBefore + daysInMonth) / 7).ceil(),
+              (i) => TableRow(
                 children: List.generate(
-                  ((daysBefore + daysInMonth) / 7).ceil(),
-                  (i) => TableRow(
-                    children: List.generate(7, (j) {
-                      final dayIndex = i * 7 + j;
-                      final date = firstDayOfMonth.add(
-                        Duration(days: dayIndex - daysBefore),
-                      );
-                      final isCurrentMonth =
-                          dayIndex >= daysBefore &&
-                          dayIndex < daysBefore + daysInMonth;
-                      final isSelected =
-                          isCurrentMonth &&
-                          date.day == widget.selectedDate.day &&
-                          date.month == widget.selectedDate.month &&
-                          date.year == widget.selectedDate.year;
-                      final isCurrentDate =
-                          isCurrentMonth &&
-                          date.day == _currentDate.day &&
-                          date.month == _currentDate.month &&
-                          date.year == _currentDate.year;
+                  7,
+                  (j) {
+                    final dayIndex = i * 7 + j;
+                    final date = firstDayOfMonth
+                        .add(Duration(days: dayIndex - daysBefore));
+                    final isCurrentMonth = dayIndex >= daysBefore &&
+                        dayIndex < daysBefore + daysInMonth;
+                    final isSelected = isCurrentMonth &&
+                        date.day == widget.selectedDate.day &&
+                        date.month == widget.selectedDate.month &&
+                        date.year == widget.selectedDate.year;
+                    final isCurrentDate = isCurrentMonth &&
+                        date.day == _currentDate.day &&
+                        date.month == _currentDate.month &&
+                        date.year == _currentDate.year;
 
-                      return Container(
-                        height: 44,
-                        margin: const EdgeInsets.all(2),
-                        child: Material(
+                    return Container(
+                      height: 32,
+                      margin: const EdgeInsets.all(1),
+                      child: Container(
+                        decoration: BoxDecoration(
                           color: isSelected
-                              ? Theme.of(context).primaryColor
+                              ? selectedDateBgColor
                               : isCurrentDate
-                              ? Colors.grey.withOpacity(0.2)
-                              : isCurrentMonth
-                              ? Colors.transparent
-                              : Colors.grey.withOpacity(0.1),
+                                  ? currentDateBgColor
+                                  : Colors.transparent,
+                          borderRadius: BorderRadius.circular(4),
+                          border: isCurrentDate && !isSelected
+                              ? Border.all(
+                                  color: Theme.of(context)
+                                      .primaryColor
+                                      .withOpacity(0.5))
+                              : null,
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
                           borderRadius: BorderRadius.circular(4),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(4),
@@ -562,17 +613,13 @@ class _CompactCalendarState extends State<CompactCalendar> {
                                 ? () {
                                     widget.onDateSelected(date);
                                     setState(() {
-                                      _currentMonth = DateTime(
-                                        date.year,
-                                        date.month,
-                                        1,
-                                      );
+                                      _currentMonth =
+                                          DateTime(date.year, date.month, 1);
                                       _isExpanded = false;
                                     });
                                     WidgetsBinding.instance
-                                        .addPostFrameCallback((_) {
-                                          _centerSelectedDate();
-                                        });
+                                        .addPostFrameCallback(
+                                            (_) => _centerSelectedDate());
                                   }
                                 : null,
                             child: Center(
@@ -580,29 +627,30 @@ class _CompactCalendarState extends State<CompactCalendar> {
                                 date.day.toString(),
                                 style: TextStyle(
                                   color: isSelected
-                                      ? Colors.white
+                                      ? selectedDateTextColor
                                       : isCurrentDate
-                                      ? Colors.black
-                                      : isCurrentMonth
-                                      ? Colors.black
-                                      : Colors.grey,
+                                          ? textColor
+                                          : isCurrentMonth
+                                              ? textColor
+                                              : textColor.withOpacity(0.5),
                                   fontWeight: isSelected || isCurrentDate
                                       ? FontWeight.bold
                                       : FontWeight.normal,
+                                  fontSize: 12,
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      );
-                    }),
-                  ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

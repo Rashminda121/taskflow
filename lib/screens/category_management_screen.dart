@@ -77,7 +77,8 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                           ),
                         );
                         if (confirmed == true) {
-                          await database.deleteCategory(category);
+                          await database.deleteCategory(
+                              index); // Changed to pass index instead of category name
                           setState(() {});
                         }
                       },
