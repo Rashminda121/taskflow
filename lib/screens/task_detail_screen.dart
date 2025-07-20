@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:daydo/models/task.dart';
-import 'package:daydo/services/database_service.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import '../models/task.dart';
+import '../services/database_service.dart';
 
 class TaskDetailScreen extends StatefulWidget {
   final Task task;
@@ -16,17 +16,11 @@ class TaskDetailScreen extends StatefulWidget {
 class _TaskDetailScreenState extends State<TaskDetailScreen> {
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
+  late TextEditingController _subtaskController;
   late String _selectedCategory;
   late TimeOfDay _startTime;
   late TimeOfDay _endTime;
-
-  final List<String> _categories = [
-    'Meeting',
-    'Hangout',
-    'Cooking',
-    'Other',
-    'Weekend',
-  ];
+  late List<String> _subtasks;
 
   @override
   void initState() {
@@ -35,27 +29,37 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     _descriptionController = TextEditingController(
       text: widget.task.description,
     );
+    _subtaskController = TextEditingController();
     _selectedCategory = widget.task.category;
     _startTime = widget.task.startTime;
     _endTime = widget.task.endTime;
+    _subtasks = List.from(widget.task.subtasks);
   }
 
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
+    _subtaskController.dispose();
     super.dispose();
+  }
+
+  void _addSubtask() {
+    if (_subtaskController.text.isNotEmpty) {
+      setState(() {
+        _subtasks.add(_subtaskController.text);
+        _subtaskController.clear();
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final database = Provider.of<DatabaseService>(context);
+    final categories = database.getCategories();
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Task Details'),
-        actions: [
-          IconButton(icon: const Icon(Icons.delete), onPressed: _deleteTask),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Task Details')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -73,7 +77,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   style: const TextStyle(fontSize: 16),
                 ),
                 const SizedBox(width: 16),
-                Chip(label: Text(widget.task.category)),
+                Chip(label: Text(_selectedCategory)),
               ],
             ),
             const SizedBox(height: 16),
@@ -88,7 +92,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             TextFormField(
               controller: _descriptionController,
               decoration: const InputDecoration(
-                labelText: 'Note',
+                labelText: 'Note (Optional)',
                 border: OutlineInputBorder(),
               ),
               maxLines: 3,
@@ -96,19 +100,40 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             const SizedBox(height: 16),
             const Text('Category'),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: _categories.map((category) {
-                return ChoiceChip(
-                  label: Text(category),
-                  selected: _selectedCategory == category,
-                  onSelected: (selected) {
-                    setState(() {
-                      _selectedCategory = category;
-                    });
-                  },
+            DropdownButton<String>(
+              value: _selectedCategory,
+              items: categories.map((category) {
+                return DropdownMenuItem<String>(
+                  value: category,
+                  child: Text(category),
                 );
               }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedCategory = value!;
+                });
+              },
+            ),
+            const SizedBox(height: 16),
+            const Text('Subtasks'),
+            ..._subtasks.map(
+              (subtask) => ListTile(
+                title: Text(subtask),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete),
+                  onPressed: () {
+                    setState(() {
+                      _subtasks.remove(subtask);
+                    });
+                  },
+                ),
+              ),
+            ),
+            TextFormField(
+              controller: _subtaskController,
+              decoration: const InputDecoration(labelText: 'Add Subtask'),
+              onFieldSubmitted: (_) => _addSubtask(),
+              onEditingComplete: _addSubtask,
             ),
             const SizedBox(height: 16),
             Row(
@@ -117,6 +142,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   child: _buildTimeField('From', _startTime, (time) {
                     setState(() {
                       _startTime = time;
+                      if (_endTime.hour < time.hour ||
+                          (_endTime.hour == time.hour &&
+                              _endTime.minute <= time.minute)) {
+                        _endTime = TimeOfDay(
+                          hour: time.hour + 1,
+                          minute: time.minute,
+                        );
+                      }
                     });
                   }),
                 ),
@@ -170,12 +203,15 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     final updatedTask = Task(
       id: widget.task.id,
       title: _titleController.text,
-      description: _descriptionController.text,
+      description: _descriptionController.text.isEmpty
+          ? null
+          : _descriptionController.text,
       date: widget.task.date,
       startTime: _startTime,
       endTime: _endTime,
       category: _selectedCategory,
       isCompleted: widget.task.isCompleted,
+      subtasks: _subtasks,
     );
 
     await Provider.of<DatabaseService>(
@@ -184,34 +220,5 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     ).updateTask(updatedTask);
     if (!mounted) return;
     Navigator.pop(context, updatedTask);
-  }
-
-  Future<void> _deleteTask() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Task'),
-        content: const Text('Are you sure you want to delete this task?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      await Provider.of<DatabaseService>(
-        context,
-        listen: false,
-      ).deleteTask(widget.task.id);
-      if (!mounted) return;
-      Navigator.pop(context);
-    }
   }
 }

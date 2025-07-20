@@ -17,7 +17,7 @@ class TaskCard extends StatelessWidget {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(task.description),
+            Text(task.description ?? ''),
             const SizedBox(height: 4),
             Text(
               '${task.formattedStartTime} - ${task.formattedEndTime}',

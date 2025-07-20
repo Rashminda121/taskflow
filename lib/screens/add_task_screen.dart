@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest.dart' as tz;
+
 import '../models/task.dart';
 import '../services/database_service.dart';
 
@@ -17,18 +21,12 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _subtaskController = TextEditingController();
   late DateTime _selectedDate;
   TimeOfDay _startTime = TimeOfDay.now();
   TimeOfDay _endTime = TimeOfDay.now();
   String _category = 'Meeting';
-
-  final List<String> _categories = [
-    'Meeting',
-    'Hangout',
-    'Cooking',
-    'Other',
-    'Weekend',
-  ];
+  List<String> _subtasks = [];
 
   @override
   void initState() {
@@ -37,8 +35,55 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     _endTime = TimeOfDay(hour: _startTime.hour + 1, minute: _startTime.minute);
   }
 
+  void _addSubtask() {
+    if (_subtaskController.text.isNotEmpty) {
+      setState(() {
+        _subtasks.add(_subtaskController.text);
+        _subtaskController.clear();
+      });
+    }
+  }
+
+  Future<void> _scheduleNotification(Task task) async {
+    final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+
+    // Convert to TZDateTime
+    final scheduledTime = tz.TZDateTime.from(
+      DateTime(
+        task.date.year,
+        task.date.month,
+        task.date.day,
+        task.startTime.hour,
+        task.startTime.minute,
+      ),
+      tz.local,
+    );
+
+    await flutterLocalNotificationsPlugin.zonedSchedule(
+      task.id.hashCode,
+      task.title,
+      task.description ?? 'Task starting now',
+      scheduledTime,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'daydo_channel',
+          'DayDo Notifications',
+          importance: Importance.max,
+          priority: Priority.high,
+        ),
+      ),
+      androidAllowWhileIdle: true,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: DateTimeComponents.dateAndTime,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final database = Provider.of<DatabaseService>(context);
+    final categories = database.getCategories();
+
     return Scaffold(
       appBar: AppBar(title: const Text('Add Task')),
       body: Padding(
@@ -60,7 +105,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
+                decoration: const InputDecoration(
+                  labelText: 'Description (Optional)',
+                ),
                 maxLines: 3,
               ),
               const SizedBox(height: 16),
@@ -81,19 +128,49 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
               ),
               const SizedBox(height: 16),
               const Text('Category'),
-              Wrap(
-                spacing: 8,
-                children: _categories.map((category) {
-                  return ChoiceChip(
-                    label: Text(category),
-                    selected: _category == category,
-                    onSelected: (selected) {
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButton<String>(
+                      value: _category,
+                      items: categories.map((category) {
+                        return DropdownMenuItem<String>(
+                          value: category,
+                          child: Text(category),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _category = value!;
+                        });
+                      },
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add),
+                    onPressed: () => _addCategory(context, database),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text('Subtasks'),
+              ..._subtasks.map(
+                (subtask) => ListTile(
+                  title: Text(subtask),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete),
+                    onPressed: () {
                       setState(() {
-                        _category = category;
+                        _subtasks.remove(subtask);
                       });
                     },
-                  );
-                }).toList(),
+                  ),
+                ),
+              ),
+              TextFormField(
+                controller: _subtaskController,
+                decoration: const InputDecoration(labelText: 'Add Subtask'),
+                onFieldSubmitted: (_) => _addSubtask(),
               ),
               const SizedBox(height: 24),
               ElevatedButton(
@@ -142,19 +219,56 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     }
   }
 
+  Future<void> _addCategory(
+    BuildContext context,
+    DatabaseService database,
+  ) async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Category'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(labelText: 'Category Name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+    if (result != null && result.isNotEmpty) {
+      await database.addCategory(result);
+      setState(() {
+        _category = result;
+      });
+    }
+  }
+
   Future<void> _saveTask() async {
     if (_formKey.currentState!.validate()) {
       final task = Task(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         title: _titleController.text,
-        description: _descriptionController.text,
+        description: _descriptionController.text.isEmpty
+            ? null
+            : _descriptionController.text,
         date: _selectedDate,
         startTime: _startTime,
         endTime: _endTime,
         category: _category,
+        subtasks: _subtasks,
       );
 
       await Provider.of<DatabaseService>(context, listen: false).addTask(task);
+      await _scheduleNotification(task);
       if (!mounted) return;
       Navigator.pop(context);
     }

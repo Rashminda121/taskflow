@@ -12,7 +12,7 @@ class Task {
   final String title;
 
   @HiveField(2)
-  final String description;
+  final String? description;
 
   @HiveField(3)
   final DateTime date;
@@ -29,15 +29,19 @@ class Task {
   @HiveField(7)
   bool isCompleted;
 
+  @HiveField(8)
+  final List<String> subtasks;
+
   Task({
     required this.id,
     required this.title,
-    required this.description,
+    this.description,
     required this.date,
     required this.startTime,
     required this.endTime,
     required this.category,
     this.isCompleted = false,
+    this.subtasks = const [],
   });
 
   String get formattedStartTime =>

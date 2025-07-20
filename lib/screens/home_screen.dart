@@ -1,11 +1,14 @@
+import 'package:daydo/widgets/theme_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import '../models/task.dart';
 import '../services/database_service.dart';
 import 'add_task_screen.dart';
-import '../widgets/task_card.dart';
-import '../widgets/calendar_widget.dart'; // Import your CompactCalendar
+import 'task_detail_screen.dart';
+import 'category_management_screen.dart';
+import 'profile_screen.dart';
+import '../widgets/task_timeline.dart';
+import '../widgets/calendar_widget.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,23 +19,58 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   DateTime _selectedDate = DateTime.now();
-  late final DatabaseService _database;
+  String _selectedCategory = 'All';
+  int _currentIndex = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    _database = Provider.of<DatabaseService>(context, listen: false);
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+
+    if (hour >= 5 && hour < 12) return 'Good Morning';
+    if (hour >= 12 && hour < 17) return 'Good Afternoon';
+    if (hour >= 17 && hour < 21) return 'Good Evening';
+    return 'Good Night';
   }
 
   @override
   Widget build(BuildContext context) {
-    final tasks = _database.getTasksForDate(_selectedDate);
+    final database = Provider.of<DatabaseService>(context);
+    final profile = database.getProfile();
+    final categories = ['All', ...database.getCategories()];
+    final tasks = database.getTasksForDate(_selectedDate)
+      ..sort(
+        (a, b) =>
+            a.startTime.hour * 60 +
+            a.startTime.minute -
+            (b.startTime.hour * 60 + b.startTime.minute),
+      );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Good Morning, Rdev')),
+      appBar: AppBar(
+        title: Text('${_getGreeting()}, ${profile['name'] ?? 'User'}'),
+        actions: [
+          IconButton(
+            icon: Icon(
+              Theme.of(context).brightness == Brightness.dark
+                  ? Icons.light_mode
+                  : Icons.dark_mode,
+            ),
+            onPressed: () {
+              Provider.of<ThemeProvider>(context, listen: false).toggleTheme();
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.category),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const CategoryManagementScreen(),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: Column(
         children: [
-          // Use your CompactCalendar widget here
           CompactCalendar(
             selectedDate: _selectedDate,
             onDateSelected: (date) {
@@ -41,13 +79,27 @@ class _HomeScreenState extends State<HomeScreen> {
               });
             },
           ),
-
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: DropdownButton<String>(
+              value: _selectedCategory,
+              items: categories.map((category) {
+                return DropdownMenuItem<String>(
+                  value: category,
+                  child: Text(category),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedCategory = value!;
+                });
+              },
+            ),
+          ),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16.0),
             child: Divider(),
           ),
-
-          // Schedule Header
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Row(
@@ -64,35 +116,54 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-
-          // Tasks List
           Expanded(
-            child: tasks.isEmpty
-                ? const Center(child: Text('No tasks for today'))
-                : ListView.builder(
-                    itemCount: tasks.length,
-                    itemBuilder: (context, index) => TaskCard(
-                      task: tasks[index],
-                      onChanged: () => setState(() {}),
-                    ),
-                  ),
+            child: TaskTimeline(
+              tasks: _selectedCategory == 'All'
+                  ? tasks
+                  : tasks
+                      .where((task) => task.category == _selectedCategory)
+                      .toList(),
+              onTaskTap: (task) => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => TaskDetailScreen(task: task),
+                ),
+              ).then((_) => setState(() {})),
+            ),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _navigateToAddTask(),
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AddTaskScreen(selectedDate: _selectedDate),
+          ),
+        ).then((_) => setState(() {})),
         child: const Icon(Icons.add),
       ),
-    );
-  }
-
-  void _navigateToAddTask() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AddTaskScreen(selectedDate: _selectedDate),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+          if (index == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ProfileScreen()),
+            ).then(
+              (_) => setState(() {
+                _currentIndex = 0;
+              }),
+            );
+          }
+        },
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.task), label: 'Tasks'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+        ],
       ),
     );
-    setState(() {});
   }
 }

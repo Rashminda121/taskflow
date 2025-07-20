@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:table_calendar/table_calendar.dart';
 
 class CompactCalendar extends StatefulWidget {
   final DateTime selectedDate;
@@ -43,8 +44,7 @@ class _CompactCalendarState extends State<CompactCalendar> {
 
     final dateWidth = 56.0;
     final screenWidth = MediaQuery.of(context).size.width;
-    // Show 1 week before and 1 week after selected date (total 3 weeks)
-    final daysBefore = 7; // Show 1 week before selected date
+    final daysBefore = 7;
     final selectedDateOffset =
         (widget.selectedDate.weekday - 1 + daysBefore) * dateWidth;
     final centerOffset =
@@ -151,7 +151,6 @@ class _CompactCalendarState extends State<CompactCalendar> {
                 Expanded(
                   child: Row(
                     children: [
-                      // Year Picker
                       Expanded(
                         flex: 1,
                         child: Container(
@@ -195,7 +194,6 @@ class _CompactCalendarState extends State<CompactCalendar> {
                           ),
                         ),
                       ),
-                      // Month Picker
                       Expanded(
                         flex: 2,
                         child: ListView.builder(
@@ -382,12 +380,9 @@ class _CompactCalendarState extends State<CompactCalendar> {
 
   Widget _buildWeekView() {
     final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    final weeksToShow =
-        3; // Show 3 weeks total (1 before, current, and 1 after selected date)
+    final weeksToShow = 3;
     final firstDayToShow = widget.selectedDate.subtract(
-      Duration(
-        days: widget.selectedDate.weekday - 1 + 7,
-      ), // Start 1 week before selected date
+      Duration(days: widget.selectedDate.weekday - 1 + 7),
     );
 
     return SizedBox(
