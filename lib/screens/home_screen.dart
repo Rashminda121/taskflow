@@ -57,21 +57,82 @@ class _HomeScreenState extends State<HomeScreen> {
         title: FutureBuilder<Map<String, dynamic>>(
           future: _profileFuture,
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Text('${_getGreeting()}, User');
-            }
-            return Text(
-                '${_getGreeting()}, ${snapshot.data?['name'] ?? 'User'}');
+            return Row(
+              children: [
+                // Profile icon
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: Theme.of(context).colorScheme.secondary,
+                  child: snapshot.hasData && snapshot.data?['photoUrl'] != null
+                      ? ClipOval(
+                          child: Image.network(
+                            snapshot.data!['photoUrl'],
+                            width: 36,
+                            height: 36,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Icon(
+                              Icons.person,
+                              size: 20,
+                              color: Theme.of(context).colorScheme.onSecondary,
+                            ),
+                          ),
+                        )
+                      : Icon(
+                          Icons.person,
+                          size: 20,
+                          color: Theme.of(context).colorScheme.onSecondary,
+                        ),
+                ),
+                const SizedBox(width: 12),
+                // Greeting and name with constrained width
+                SizedBox(
+                  width: MediaQuery.of(context).size.width *
+                      0.5, // Limits width to 50% of screen
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _getGreeting(),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withOpacity(0.8),
+                            ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        snapshot.connectionState == ConnectionState.waiting
+                            ? 'User'
+                            : snapshot.data?['name'] ?? 'User',
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
           },
         ),
         actions: [
+          // Theme toggle button
           IconButton(
             icon: Icon(Theme.of(context).brightness == Brightness.dark
                 ? Icons.light_mode
                 : Icons.dark_mode),
             onPressed: () => Provider.of<ThemeProvider>(context, listen: false)
                 .toggleTheme(),
+            tooltip: 'Toggle theme',
           ),
+          // Categories button
           IconButton(
             icon: const Icon(Icons.category),
             onPressed: () => Navigator.push(
@@ -79,7 +140,10 @@ class _HomeScreenState extends State<HomeScreen> {
               MaterialPageRoute(
                   builder: (context) => const CategoryManagementScreen()),
             ).then((_) => setState(() {})),
+            tooltip: 'Manage categories',
           ),
+          // Add some spacing if needed
+          const SizedBox(width: 4),
         ],
       ),
       body: Column(
