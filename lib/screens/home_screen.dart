@@ -57,8 +57,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String _formatHour(int hour) {
-    final time = TimeOfDay(hour: hour % 12 == 0 ? 12 : hour % 12, minute: 0);
-    return '${time.format(context)} ${hour < 12 ? 'AM' : 'PM'}';
+    final time = TimeOfDay(hour: hour, minute: 0);
+    return time.format(context);
   }
 
   void _toggleCategorySelector() {
@@ -93,12 +93,34 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _deleteTask(Task task) async {
-    final database = Provider.of<DatabaseService>(context, listen: false);
-    await database.deleteTask(task.id);
-    setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Task "${task.title}" deleted')),
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Task'),
+        content: Text('Are you sure you want to delete "${task.title}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
     );
+
+    if (confirmed == true) {
+      final database = Provider.of<DatabaseService>(context, listen: false);
+      await database.deleteTask(task.id);
+      setState(() {});
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Task "${task.title}" deleted')),
+        );
+      }
+    }
   }
 
   Future<void> _editTask(Task task) async {
@@ -662,6 +684,7 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Dismissible(
         key: Key(task.id),
+        direction: DismissDirection.horizontal,
         background: Container(
           decoration: BoxDecoration(
             color: Colors.red,
@@ -684,10 +707,11 @@ class _HomeScreenState extends State<HomeScreen> {
           if (direction == DismissDirection.startToEnd) {
             await _deleteTask(task);
             return false;
-          } else {
+          } else if (direction == DismissDirection.endToStart) {
             await _editTask(task);
             return false;
           }
+          return null;
         },
         child: Card(
           elevation: 1,
@@ -696,11 +720,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           child: InkWell(
             borderRadius: BorderRadius.circular(12),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => TaskDetailScreen(task: task)),
-            ).then((_) => setState(() {})),
+            onTap: () => _toggleTaskCompletion(task),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
