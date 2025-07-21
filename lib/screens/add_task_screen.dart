@@ -33,7 +33,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   late TimeOfDay _endTime;
   late String _category;
   List<String> _subtasks = [];
-  Color _taskColor = Colors.blue;
+  Color? _taskColor = Colors.blue;
   bool _showSubtasks = false;
   bool _showDescription = false;
 
@@ -61,6 +61,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       _endTime =
           TimeOfDay(hour: _startTime.hour + 1, minute: _startTime.minute);
       _category = 'Personal';
+      _taskColor ??= Colors.blue;
     }
   }
 
@@ -130,7 +131,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
   Widget _buildColorOption(Color color) {
     final theme = Theme.of(context);
-    final isSelected = _taskColor.value == color.value;
+    final isSelected = _taskColor?.value == color.value;
 
     return GestureDetector(
       onTap: () {
@@ -659,7 +660,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         endTime: _endTime,
         category: _category,
         subtasks: _subtasks,
-        color: _taskColor,
+        color: _taskColor ?? Colors.blue,
         isCompleted: widget.taskToEdit?.isCompleted ?? false,
       );
 

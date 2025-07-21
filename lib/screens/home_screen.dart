@@ -26,6 +26,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _showCompletedTasks = false;
   final Map<int, bool> _expandedHours = {};
   final ScrollController _scrollController = ScrollController();
+  String?
+      _expandedTaskId; // Track which task is expanded to show subtasks/description
 
   @override
   void initState() {
@@ -134,6 +136,12 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
     setState(() {});
+  }
+
+  void _toggleTaskExpansion(String taskId) {
+    setState(() {
+      _expandedTaskId = _expandedTaskId == taskId ? null : taskId;
+    });
   }
 
   DateTime _timeOfDayToDateTime(TimeOfDay timeOfDay, DateTime date) {
@@ -432,11 +440,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   controller: _scrollController,
                   child: Column(
                     children: [
-                      // Show message if no tasks in selected category
                       if (pendingTasks.isEmpty && completedTasks.isEmpty)
                         _buildNoTasksInCategory(),
-
-                      // Pending Tasks by Hour
                       if (pendingTasks.isNotEmpty)
                         ...List.generate(24, (index) {
                           final hour = index;
@@ -447,9 +452,10 @@ class _HomeScreenState extends State<HomeScreen> {
                             return const SizedBox.shrink();
                           }
 
+                          final isExpanded = _expandedHours[hour] ?? true;
+
                           return Column(
                             children: [
-                              // Hour Header
                               GestureDetector(
                                 onTap: () => _toggleHourExpansion(hour),
                                 child: Container(
@@ -467,9 +473,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                       const Spacer(),
                                       Icon(
-                                        _expandedHours[hour] ?? true
-                                            ? Icons.keyboard_arrow_up
-                                            : Icons.keyboard_arrow_down,
+                                        isExpanded
+                                            ? Icons.notes
+                                            : Icons.notes_outlined,
                                         color: theme.colorScheme.onSurface
                                             .withOpacity(0.6),
                                       ),
@@ -477,15 +483,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 ),
                               ),
-                              // Tasks for this hour
-                              if (_expandedHours[hour] ?? true)
+                              if (isExpanded)
                                 ...tasks
                                     .map((task) => _buildTaskCard(task, false)),
                             ],
                           );
                         }),
-
-                      // Completed Tasks Section
                       if (_showCompletedTasks && completedTasks.isNotEmpty) ...[
                         const SizedBox(height: 16),
                         Padding(
@@ -679,6 +682,11 @@ class _HomeScreenState extends State<HomeScreen> {
         timeFormat.format(_timeOfDayToDateTime(task.startTime, task.date));
     final endTime =
         timeFormat.format(_timeOfDayToDateTime(task.endTime, task.date));
+    final hasSubtasks = task.subtasks.isNotEmpty;
+    final hasDescription =
+        task.description != null && task.description!.isNotEmpty;
+    final isExpandable = hasSubtasks || hasDescription;
+    final isExpanded = _expandedTaskId == task.id;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -713,77 +721,79 @@ class _HomeScreenState extends State<HomeScreen> {
           }
           return null;
         },
-        child: Card(
-          elevation: 1,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () => _toggleTaskCompletion(task),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      // Category Indicator
-                      Container(
-                        width: 4,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          color: task.color,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      // Task Title
-                      Expanded(
-                        child: Text(
-                          task.title,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            decoration: isCompleted
-                                ? TextDecoration.lineThrough
-                                : TextDecoration.none,
-                            color: isCompleted
-                                ? theme.colorScheme.onSurface.withOpacity(0.5)
-                                : theme.colorScheme.onSurface,
+        child: GestureDetector(
+          onDoubleTap:
+              isExpandable ? () => _toggleTaskExpansion(task.id) : null,
+          child: Card(
+            elevation: 1,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => _toggleTaskCompletion(task),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        // Category Indicator
+                        Container(
+                          width: 4,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: task.color,
+                            borderRadius: BorderRadius.circular(2),
                           ),
                         ),
-                      ),
-                      // Complete/Incomplete Button
-                      IconButton(
-                        icon: Icon(
-                          isCompleted
-                              ? Icons.check_circle
-                              : Icons.radio_button_unchecked,
-                          color: isCompleted
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.onSurface.withOpacity(0.3),
+                        const SizedBox(width: 12),
+                        // Task Title
+                        Expanded(
+                          child: Text(
+                            task.title,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              decoration: isCompleted
+                                  ? TextDecoration.lineThrough
+                                  : TextDecoration.none,
+                              color: isCompleted
+                                  ? theme.colorScheme.onSurface.withOpacity(0.5)
+                                  : theme.colorScheme.onSurface,
+                            ),
+                          ),
                         ),
-                        onPressed: () => _toggleTaskCompletion(task),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const SizedBox(width: 16),
-                      Icon(
-                        Icons.access_time,
-                        size: 16,
-                        color: theme.colorScheme.onSurface.withOpacity(0.5),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$startTime - $endTime',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.7),
+                        // Complete/Incomplete Button
+                        IconButton(
+                          icon: Icon(
+                            isCompleted
+                                ? Icons.check_circle
+                                : Icons.radio_button_unchecked,
+                            color: isCompleted
+                                ? theme.colorScheme.primary
+                                : theme.colorScheme.onSurface.withOpacity(0.3),
+                          ),
+                          onPressed: () => _toggleTaskCompletion(task),
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      ...[
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const SizedBox(width: 16),
+                        Icon(
+                          Icons.access_time,
+                          size: 16,
+                          color: theme.colorScheme.onSurface.withOpacity(0.5),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$startTime - $endTime',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.7),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
                         Icon(
                           Icons.category,
                           size: 16,
@@ -796,10 +806,85 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: theme.colorScheme.onSurface.withOpacity(0.7),
                           ),
                         ),
+                        if (isExpandable) ...[
+                          const SizedBox(width: 16),
+                          Icon(
+                            isExpanded ? Icons.notes : Icons.notes_outlined,
+                            size: 16,
+                            color: theme.colorScheme.onSurface.withOpacity(0.5),
+                          ),
+                        ],
                       ],
-                    ],
-                  ),
-                ],
+                    ),
+                    // Subtasks and Description section
+                    if (isExpanded && isExpandable)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12, left: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (hasSubtasks) ...[
+                              Text(
+                                'Subtasks:',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              ...task.subtasks.map((subtask) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 6,
+                                        height: 6,
+                                        margin:
+                                            const EdgeInsets.only(right: 12),
+                                        decoration: BoxDecoration(
+                                          color: theme.colorScheme.primary,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Text(
+                                          subtask,
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                            color: theme.colorScheme.onSurface
+                                                .withOpacity(0.7),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                              if (hasDescription) const SizedBox(height: 12),
+                            ],
+                            if (hasDescription) ...[
+                              Text(
+                                'Description:',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                task.description!,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurface
+                                      .withOpacity(0.7),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
