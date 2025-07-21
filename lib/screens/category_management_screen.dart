@@ -25,7 +25,19 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
     final categories = database.getCategories();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Manage Categories')),
+      appBar: AppBar(
+        title: const Text('Manage Categories'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.sort),
+            onPressed: () {
+              setState(() {
+                // This will trigger the reorderable list view
+              });
+            },
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -48,42 +60,52 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
             ),
             const SizedBox(height: 16),
             Expanded(
-              child: ListView.builder(
+              child: ReorderableListView.builder(
                 itemCount: categories.length,
                 itemBuilder: (context, index) {
                   final category = categories[index];
+                  final isDefault = database.isDefaultCategory(category);
+
                   return ListTile(
+                    key: Key('$index-$category'),
                     title: Text(category),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete),
-                      onPressed: () async {
-                        final confirmed = await showDialog<bool>(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('Delete Category'),
-                            content: Text(
-                              'Are you sure you want to delete "$category"?',
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, false),
-                                child: const Text('Cancel'),
-                              ),
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, true),
-                                child: const Text('Delete'),
-                              ),
-                            ],
+                    trailing: isDefault
+                        ? const Icon(Icons.lock, color: Colors.grey)
+                        : IconButton(
+                            icon: const Icon(Icons.delete),
+                            onPressed: () async {
+                              final confirmed = await showDialog<bool>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('Delete Category'),
+                                  content: Text(
+                                    'Are you sure you want to delete "$category"?',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(context, false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(context, true),
+                                      child: const Text('Delete'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (confirmed == true) {
+                                await database.deleteCategory(index);
+                                setState(() {});
+                              }
+                            },
                           ),
-                        );
-                        if (confirmed == true) {
-                          await database.deleteCategory(
-                              index); // Changed to pass index instead of category name
-                          setState(() {});
-                        }
-                      },
-                    ),
                   );
+                },
+                onReorder: (oldIndex, newIndex) async {
+                  await database.reorderCategories(oldIndex, newIndex);
+                  setState(() {});
                 },
               ),
             ),

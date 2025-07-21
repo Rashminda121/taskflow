@@ -178,7 +178,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.background,
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
         title: FutureBuilder<Map<String, dynamic>>(
           future: _profileFuture,
@@ -783,7 +783,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       const SizedBox(width: 16),
-                      if (task.category != null) ...[
+                      ...[
                         Icon(
                           Icons.category,
                           size: 16,

@@ -7,6 +7,14 @@ class DatabaseService {
   static const String _categoryBoxName = 'categories';
   static const String _profileBoxName = 'profile';
 
+  static const List<String> _defaultCategories = [
+    'Work',
+    'Personal',
+    'Study',
+    'Health',
+    'Other',
+  ];
+
   late Box<Task> _taskBox;
   late Box<String> _categoryBox;
   late Box<Map<String, dynamic>> _profileBox;
@@ -47,14 +55,11 @@ class DatabaseService {
   }
 
   Future<void> _initializeDefaultData() async {
-    if (_categoryBox.isEmpty) {
-      await _categoryBox.addAll([
-        'Work',
-        'Personal',
-        'Study',
-        'Health',
-        'Other',
-      ]);
+    // Add default categories if they don't exist
+    for (final category in _defaultCategories) {
+      if (!_categoryBox.values.contains(category)) {
+        await _categoryBox.add(category);
+      }
     }
 
     if (!_profileBox.containsKey('profile')) {
@@ -100,7 +105,25 @@ class DatabaseService {
   }
 
   Future<void> deleteCategory(int index) async {
-    await _categoryBox.deleteAt(index);
+    final category = _categoryBox.getAt(index);
+    if (category != null && !_defaultCategories.contains(category)) {
+      await _categoryBox.deleteAt(index);
+    }
+  }
+
+  Future<void> reorderCategories(int oldIndex, int newIndex) async {
+    final categories = _categoryBox.values.toList();
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    final item = categories.removeAt(oldIndex);
+    categories.insert(newIndex, item);
+    await _categoryBox.clear();
+    await _categoryBox.addAll(categories);
+  }
+
+  bool isDefaultCategory(String category) {
+    return _defaultCategories.contains(category);
   }
 
   // Profile operations
