@@ -26,14 +26,13 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _showCompletedTasks = false;
   final Map<int, bool> _expandedHours = {};
   final ScrollController _scrollController = ScrollController();
-  String?
-      _expandedTaskId; // Track which task is expanded to show subtasks/description
+  String? _expandedTaskId;
 
   @override
   void initState() {
     super.initState();
     _loadProfile();
-    // Initialize all hours as expanded
+    // Initialize all hours as expanded by default
     for (int i = 0; i < 24; i++) {
       _expandedHours[i] = true;
     }
@@ -160,7 +159,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final database = Provider.of<DatabaseService>(context);
     final allTasks = database.getTasksForDate(_selectedDate);
 
-    // Filter tasks based on category and completion status
     final pendingTasks = allTasks.where((task) {
       final categoryMatch =
           _selectedCategory == 'All' || task.category == _selectedCategory;
@@ -177,7 +175,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ..sort((a, b) => _timeOfDayToDateTime(a.startTime, a.date)
           .compareTo(_timeOfDayToDateTime(b.startTime, b.date)));
 
-    // Group tasks by hour
     final Map<int, List<Task>> tasksByHour = {};
     for (final task in pendingTasks) {
       final hour = task.startTime.hour;
@@ -273,7 +270,6 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Column(
             children: [
-              // Calendar Section
               Container(
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surface,
@@ -296,8 +292,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-
-              // Header Section
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                 child: Row(
@@ -327,15 +321,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-
-              // Filter and Completed Tasks Toggle Row
               if (allTasks.isNotEmpty)
                 Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(
                     children: [
-                      // Filter Chip
                       GestureDetector(
                         onTap: _toggleCategorySelector,
                         child: Container(
@@ -383,7 +374,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       const Spacer(),
-                      // Completed Tasks Toggle
                       if (completedTasks.isNotEmpty)
                         GestureDetector(
                           onTap: _toggleCompletedTasks,
@@ -426,15 +416,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-
               const SizedBox(height: 8),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16),
                 child: Divider(height: 1),
               ),
               const SizedBox(height: 8),
-
-              // Task Timeline
               Expanded(
                 child: SingleChildScrollView(
                   controller: _scrollController,
@@ -447,12 +434,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           final hour = index;
                           final tasks = tasksByHour[hour] ?? [];
                           final hasTasks = tasks.isNotEmpty;
-
-                          if (!hasTasks) {
-                            return const SizedBox.shrink();
-                          }
-
                           final isExpanded = _expandedHours[hour] ?? true;
+
+                          if (!hasTasks) return const SizedBox.shrink();
 
                           return Column(
                             children: [
@@ -461,7 +445,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 16, vertical: 12),
-                                  color: theme.colorScheme.surface,
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.surface,
+                                    border: Border(
+                                      bottom: BorderSide(
+                                        color: theme.colorScheme.outline
+                                            .withOpacity(0.1),
+                                        width: 1,
+                                      ),
+                                    ),
+                                  ),
                                   child: Row(
                                     children: [
                                       Text(
@@ -474,8 +467,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                       const Spacer(),
                                       Icon(
                                         isExpanded
-                                            ? Icons.notes
-                                            : Icons.notes_outlined,
+                                            ? Icons.text_snippet_outlined
+                                            : Icons.notes,
                                         color: theme.colorScheme.onSurface
                                             .withOpacity(0.6),
                                       ),
@@ -532,8 +525,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-
-          // Category Selector Bottom Sheet
           if (_showCategorySelector) _buildCategorySelector(),
         ],
       ),
@@ -739,7 +730,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     Row(
                       children: [
-                        // Category Indicator
                         Container(
                           width: 4,
                           height: 24,
@@ -749,7 +739,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        // Task Title
                         Expanded(
                           child: Text(
                             task.title,
@@ -763,7 +752,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                         ),
-                        // Complete/Incomplete Button
                         IconButton(
                           icon: Icon(
                             isCompleted
@@ -809,14 +797,15 @@ class _HomeScreenState extends State<HomeScreen> {
                         if (isExpandable) ...[
                           const SizedBox(width: 16),
                           Icon(
-                            isExpanded ? Icons.notes : Icons.notes_outlined,
+                            isExpanded
+                                ? Icons.text_snippet_outlined
+                                : Icons.notes,
                             size: 16,
                             color: theme.colorScheme.onSurface.withOpacity(0.5),
                           ),
                         ],
                       ],
                     ),
-                    // Subtasks and Description section
                     if (isExpanded && isExpandable)
                       Padding(
                         padding: const EdgeInsets.only(top: 12, left: 16),
@@ -917,7 +906,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Draggable Handle
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Container(
@@ -929,8 +917,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     ),
-
-                    // Header
                     Padding(
                       padding: const EdgeInsets.fromLTRB(24, 16, 16, 8),
                       child: Row(
@@ -953,8 +939,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       ),
                     ),
-
-                    // Categories List
                     Flexible(
                       child: ListView.builder(
                         padding: const EdgeInsets.only(bottom: 16),
