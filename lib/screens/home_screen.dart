@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'dart:io'; // Add this import for File class
 import '../services/database_service.dart';
 import '../widgets/theme_provider.dart';
 import 'add_task_screen.dart';
 import 'task_detail_screen.dart';
 import 'category_management_screen.dart';
 import 'profile_screen.dart';
+import 'settings_screen.dart';
 import '../models/task.dart';
 import '../widgets/calendar_widget.dart';
 
@@ -32,7 +34,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadProfile();
-    // Initialize all hours as expanded by default
     for (int i = 0; i < 24; i++) {
       _expandedHours[i] = true;
     }
@@ -185,38 +186,33 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: FutureBuilder<Map<String, dynamic>>(
-          future: _profileFuture,
-          builder: (context, snapshot) {
-            return Row(
-              children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: theme.colorScheme.secondary,
-                  child: snapshot.hasData && snapshot.data?['photoUrl'] != null
-                      ? ClipOval(
-                          child: Image.network(
-                            snapshot.data!['photoUrl'],
-                            width: 36,
-                            height: 36,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => Icon(
-                              Icons.person,
-                              size: 20,
-                              color: theme.colorScheme.onSecondary,
-                            ),
-                          ),
-                        )
-                      : Icon(
-                          Icons.person,
-                          size: 20,
-                          color: theme.colorScheme.onSecondary,
-                        ),
-                ),
-                const SizedBox(width: 12),
-                SizedBox(
-                  width: MediaQuery.of(context).size.width * 0.5,
-                  child: Column(
+        title: GestureDetector(
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ProfileScreen()),
+          ).then((_) => setState(() {})),
+          child: FutureBuilder<Map<String, dynamic>>(
+            future: _profileFuture,
+            builder: (context, snapshot) {
+              return Row(
+                children: [
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: theme.colorScheme.secondary,
+                    backgroundImage:
+                        snapshot.hasData && snapshot.data?['imagePath'] != null
+                            ? FileImage(File(snapshot.data!['imagePath']))
+                            : null,
+                    child: snapshot.data?['imagePath'] == null
+                        ? Icon(
+                            Icons.person,
+                            size: 20,
+                            color: theme.colorScheme.onSecondary,
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -225,26 +221,20 @@ class _HomeScreenState extends State<HomeScreen> {
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurface.withOpacity(0.8),
                         ),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        snapshot.connectionState == ConnectionState.waiting
-                            ? 'User'
-                            : snapshot.data?['name'] ?? 'User',
+                        snapshot.data?['name'] ?? 'User',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
                       ),
                     ],
                   ),
-                ),
-              ],
-            );
-          },
+                ],
+              );
+            },
+          ),
         ),
         actions: [
           IconButton(
@@ -256,13 +246,12 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: 'Toggle theme',
           ),
           IconButton(
-            icon: const Icon(Icons.category),
+            icon: const Icon(Icons.settings),
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(
-                  builder: (context) => const CategoryManagementScreen()),
-            ).then((_) => setState(() {})),
-            tooltip: 'Manage categories',
+              MaterialPageRoute(builder: (context) => const SettingsScreen()),
+            ),
+            tooltip: 'Settings',
           ),
         ],
       ),
@@ -562,7 +551,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (context) => const ProfileScreen()),
+                      builder: (context) => const SettingsScreen()),
                 ).then((_) {
                   setState(() {
                     _currentIndex = 0;
@@ -588,7 +577,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ? theme.colorScheme.primary.withOpacity(0.1)
                         : Colors.transparent,
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.task,
                     size: 24,
                   ),
@@ -604,12 +593,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         ? theme.colorScheme.primary.withOpacity(0.1)
                         : Colors.transparent,
                   ),
-                  child: Icon(
-                    Icons.person,
+                  child: const Icon(
+                    Icons.settings,
                     size: 24,
                   ),
                 ),
-                label: 'Profile',
+                label: 'Settings',
               ),
             ],
           ),

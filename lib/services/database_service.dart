@@ -23,7 +23,6 @@ class DatabaseService {
     try {
       await Hive.initFlutter();
 
-      // Register adapters
       if (!Hive.isAdapterRegistered(TaskAdapter().typeId)) {
         Hive.registerAdapter(TaskAdapter());
       }
@@ -31,13 +30,11 @@ class DatabaseService {
         Hive.registerAdapter(TimeOfDayAdapter());
       }
 
-      // Open boxes with crash protection
       _taskBox = await _openBoxWithRecovery<Task>(_taskBoxName);
       _categoryBox = await _openBoxWithRecovery<String>(_categoryBoxName);
       _profileBox =
           await _openBoxWithRecovery<Map<String, dynamic>>(_profileBoxName);
 
-      // Initialize default data
       await _initializeDefaultData();
     } catch (e) {
       throw Exception('Failed to initialize database: $e');
@@ -48,14 +45,12 @@ class DatabaseService {
     try {
       return await Hive.openBox<T>(name);
     } catch (e) {
-      // If box is corrupted, delete and recreate it
       await Hive.deleteBoxFromDisk(name);
       return await Hive.openBox<T>(name);
     }
   }
 
   Future<void> _initializeDefaultData() async {
-    // Add default categories if they don't exist
     for (final category in _defaultCategories) {
       if (!_categoryBox.values.contains(category)) {
         await _categoryBox.add(category);
@@ -65,24 +60,19 @@ class DatabaseService {
     if (!_profileBox.containsKey('profile')) {
       await _profileBox.put('profile', {
         'name': 'User',
-        'photoUrl': null,
+        'imagePath': null,
+        'email': '',
+        'phone': '',
         'themeMode': 'system',
       });
     }
   }
 
   // Task operations
-  Future<void> addTask(Task task) async {
-    await _taskBox.put(task.id, task);
-  }
-
-  Future<void> updateTask(Task task) async {
-    await _taskBox.put(task.id, task);
-  }
-
-  Future<void> deleteTask(String id) async {
-    await _taskBox.delete(id);
-  }
+  Future<void> addTask(Task task) async => await _taskBox.put(task.id, task);
+  Future<void> updateTask(Task task) async => await _taskBox.put(task.id, task);
+  Future<void> deleteTask(String id) async => await _taskBox.delete(id);
+  Future<void> clearAllTasks() async => await _taskBox.clear();
 
   List<Task> getTasksForDate(DateTime date) {
     return _taskBox.values
@@ -94,9 +84,7 @@ class DatabaseService {
   }
 
   // Category operations
-  List<String> getCategories() {
-    return _categoryBox.values.toList();
-  }
+  List<String> getCategories() => _categoryBox.values.toList();
 
   Future<void> addCategory(String category) async {
     if (!_categoryBox.values.contains(category)) {
@@ -113,25 +101,24 @@ class DatabaseService {
 
   Future<void> reorderCategories(int oldIndex, int newIndex) async {
     final categories = _categoryBox.values.toList();
-    if (oldIndex < newIndex) {
-      newIndex -= 1;
-    }
+    if (oldIndex < newIndex) newIndex -= 1;
     final item = categories.removeAt(oldIndex);
     categories.insert(newIndex, item);
     await _categoryBox.clear();
     await _categoryBox.addAll(categories);
   }
 
-  bool isDefaultCategory(String category) {
-    return _defaultCategories.contains(category);
-  }
+  bool isDefaultCategory(String category) =>
+      _defaultCategories.contains(category);
 
   // Profile operations
   Future<Map<String, dynamic>> getProfile() async {
     return _profileBox.get('profile') ??
         {
           'name': 'User',
-          'photoUrl': null,
+          'imagePath': null,
+          'email': '',
+          'phone': '',
           'themeMode': 'system',
         };
   }
@@ -140,7 +127,6 @@ class DatabaseService {
     await _profileBox.put('profile', profile);
   }
 
-  // Maintenance
   Future<void> clearDatabase() async {
     await _taskBox.clear();
     await _categoryBox.clear();
@@ -148,11 +134,8 @@ class DatabaseService {
     await _initializeDefaultData();
   }
 
-  Future<void> close() async {
-    await Hive.close();
-  }
+  Future<void> close() async => await Hive.close();
 
-  // Getters
   Box<Task> get tasksBox => _taskBox;
   Box<String> get categoryBox => _categoryBox;
   Box<Map<String, dynamic>> get profileBox => _profileBox;

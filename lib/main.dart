@@ -1,86 +1,38 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart'; // Added for BindingBase
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:timezone/data/latest.dart' as tz;
-
-import 'services/database_service.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'screens/home_screen.dart';
+import 'screens/profile_screen.dart';
+import 'screens/settings_screen.dart';
+import 'screens/category_management_screen.dart';
+import 'services/database_service.dart';
 import 'widgets/theme_provider.dart';
+import 'models/task.dart';
+import 'models/time_of_day_adapter.dart';
 
-Future<DatabaseService> _initializeApp() async {
-  // Changed return type to Future<DatabaseService>
-  // Initialize timezone database
-  tz.initializeTimeZones();
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
 
-  // Set up local notifications
-  final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+  // Initialize Hive
+  await Hive.initFlutter();
 
-  const initializationSettingsAndroid =
-      AndroidInitializationSettings('app_icon');
-  const initializationSettingsIOS = DarwinInitializationSettings(
-    requestAlertPermission: true,
-    requestBadgePermission: true,
-    requestSoundPermission: true,
+  // Register adapters
+  Hive.registerAdapter(TaskAdapter());
+  Hive.registerAdapter(TimeOfDayAdapter());
+
+  // Initialize database service
+  final databaseService = DatabaseService();
+  await databaseService.init();
+
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        Provider<DatabaseService>(create: (_) => databaseService),
+      ],
+      child: const MyApp(),
+    ),
   );
-  const initializationSettings = InitializationSettings(
-    android: initializationSettingsAndroid,
-    iOS: initializationSettingsIOS,
-  );
-
-  try {
-    print('Initializing notifications...');
-    await flutterLocalNotificationsPlugin.initialize(
-      initializationSettings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) {
-        print('Notification response received: ${response.payload}');
-      },
-    );
-    print('Notification initialization succeeded');
-  } catch (e, stack) {
-    print('Error initializing notifications: $e');
-    print('Stack trace: $stack');
-  }
-
-  // Initialize database
-  final database = DatabaseService();
-  try {
-    print('Initializing database...');
-    await database.init();
-    print('Database initialized.');
-    return database; // Now matches the return type
-  } catch (e, stack) {
-    print('Error initializing database: $e');
-    print('Stack trace: $stack');
-    rethrow;
-  }
-}
-
-void main() {
-  // Make zone errors fatal during development
-  BindingBase.debugZoneErrorsAreFatal = true;
-
-  runZonedGuarded(() async {
-    WidgetsFlutterBinding.ensureInitialized();
-
-    final database = await _initializeApp();
-
-    runApp(
-      MultiProvider(
-        providers: [
-          Provider.value(value: database),
-          ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ],
-        child: const MyApp(),
-      ),
-    );
-  }, (error, stack) {
-    print('Unhandled error: $error');
-    print('Stack trace: $stack');
-    // You might want to add crash reporting here
-  });
 }
 
 class MyApp extends StatelessWidget {
@@ -88,43 +40,50 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ThemeProvider>(
-      builder: (context, themeProvider, _) {
-        return MaterialApp(
-          debugShowCheckedModeBanner: false,
-          title: 'DayDo',
-          theme: ThemeData(
-            primarySwatch: Colors.blue,
-            textTheme: const TextTheme(
-              bodySmall: TextStyle(fontSize: 12, color: Colors.black),
-              titleSmall: TextStyle(fontSize: 14, color: Colors.black),
-              titleLarge: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black),
-            ),
-          ),
-          darkTheme: ThemeData(
-            brightness: Brightness.dark,
-            primarySwatch: Colors.blue,
-            textTheme: const TextTheme(
-              bodySmall: TextStyle(fontSize: 12, color: Colors.white),
-              titleSmall: TextStyle(fontSize: 14, color: Colors.white),
-              titleLarge: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white),
-            ),
-          ),
-          themeMode: themeProvider.themeMode,
-          home: const HomeScreen(),
-          localizationsDelegates: const [
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: const [Locale('en', '')],
-        );
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
+    return MaterialApp(
+      title: 'Task Manager',
+      debugShowCheckedModeBanner: false,
+      themeMode: themeProvider.themeMode,
+      theme: ThemeData(
+        colorScheme: ColorScheme.light(
+          primary: Colors.blue.shade700,
+          secondary: Colors.blue.shade200,
+          surface: Colors.white,
+          background: Colors.grey.shade50,
+          error: Colors.red.shade400,
+          onPrimary: Colors.white,
+          onSecondary: Colors.black,
+          onSurface: Colors.black,
+          onBackground: Colors.black,
+          onError: Colors.white,
+          brightness: Brightness.light,
+        ),
+        useMaterial3: true,
+      ),
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.dark(
+          primary: Colors.blue.shade300,
+          secondary: Colors.blue.shade800,
+          surface: Colors.grey.shade900,
+          background: Colors.grey.shade800,
+          error: Colors.red.shade300,
+          onPrimary: Colors.black,
+          onSecondary: Colors.white,
+          onSurface: Colors.white,
+          onBackground: Colors.white,
+          onError: Colors.black,
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
+      ),
+      home: const HomeScreen(),
+      routes: {
+        '/home': (context) => const HomeScreen(),
+        '/profile': (context) => const ProfileScreen(),
+        '/settings': (context) => const SettingsScreen(),
+        '/categories': (context) => const CategoryManagementScreen(),
       },
     );
   }
